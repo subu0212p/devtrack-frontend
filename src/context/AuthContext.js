@@ -20,11 +20,16 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const login = (userData, token) => {
-    localStorage.setItem('devtrack_token', token)
-    localStorage.setItem('devtrack_user', JSON.stringify(userData))
-    setUser(userData)
+  localStorage.setItem('devtrack_token', token)
+  localStorage.setItem('devtrack_user', JSON.stringify(userData))
+  setUser(userData)
+  const pendingInvite = localStorage.getItem('pending_invite')
+  if (pendingInvite) {
+    router.push(`/invite?token=${pendingInvite}`)
+  } else {
     router.push('/dashboard')
   }
+}
 
   const logout = () => {
     localStorage.removeItem('devtrack_token')
