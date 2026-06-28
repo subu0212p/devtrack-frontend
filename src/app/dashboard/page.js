@@ -48,13 +48,13 @@ const STATUS_LABELS = {
   'not-started': '○ Not Started',
   empty: '+ No tasks yet',
 }
-const [allTasks, setAllTasks] = useState([])
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [projects, setProjects] = useState([])
   const [projectTasks, setProjectTasks] = useState({})
+  const [allTasks, setAllTasks] = useState([])
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -70,34 +70,34 @@ export default function Dashboard() {
   }, [user])
 
   const fetchData = async () => {
-  try {
-    const [projectsRes, countRes] = await Promise.all([
-      projectsAPI.getAll(),
-      notificationsAPI.getUnreadCount()
-    ])
-    const projs = projectsRes.data
-    setProjects(projs)
-    setUnreadCount(countRes.data.count)
+    try {
+      const [projectsRes, countRes] = await Promise.all([
+        projectsAPI.getAll(),
+        notificationsAPI.getUnreadCount()
+      ])
+      const projs = projectsRes.data
+      setProjects(projs)
+      setUnreadCount(countRes.data.count)
 
-    const tasksMap = {}
-    const allTasksList = []
-    await Promise.all(projs.map(async (p) => {
-      try {
-        const res = await tasksAPI.getByProject(p._id)
-        tasksMap[p._id] = res.data
-        res.data.forEach(t => allTasksList.push({ ...t, projectName: p.name }))
-      } catch {
-        tasksMap[p._id] = []
-      }
-    }))
-    setProjectTasks(tasksMap)
-    setAllTasks(allTasksList)
-  } catch (err) {
-    toast.error('Failed to load data')
-  } finally {
-    setLoading(false)
+      const tasksMap = {}
+      const allTasksList = []
+      await Promise.all(projs.map(async (p) => {
+        try {
+          const res = await tasksAPI.getByProject(p._id)
+          tasksMap[p._id] = res.data
+          res.data.forEach(t => allTasksList.push({ ...t, projectName: p.name }))
+        } catch {
+          tasksMap[p._id] = []
+        }
+      }))
+      setProjectTasks(tasksMap)
+      setAllTasks(allTasksList)
+    } catch (err) {
+      toast.error('Failed to load data')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   const fetchNotifications = async () => {
     try {
@@ -153,13 +153,12 @@ export default function Dashboard() {
       await projectsAPI.acceptInvite(token)
       toast.success('Joined project!')
       setShowNotifications(false)
-      fetchData()
+      await fetchData()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to join project')
     }
   }
 
-  // stats
   const stats = {
     all: projects.length,
     completed: projects.filter(p => getProjectStatus(projectTasks[p._id]) === 'completed').length,
@@ -225,7 +224,7 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {/* Stats — clickable filters */}
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { key: 'all', icon: FolderOpen, label: 'All Projects', color: 'text-blue-500' },
@@ -299,12 +298,10 @@ export default function Dashboard() {
                     </p>
                   )}
 
-                  {/* Status badge */}
                   <span className={`text-xs px-2 py-1 rounded font-medium ${STATUS_STYLES[status]}`}>
                     {STATUS_LABELS[status]}
                   </span>
 
-                  {/* Progress bar */}
                   {tasks.length > 0 && (
                     <div className="mt-3">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -327,6 +324,71 @@ export default function Dashboard() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* Priority Task Rankings */}
+        {allTasks.filter(t => t.status !== 'done').length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold mb-4">⚡ Priority Tasks</h2>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="grid grid-cols-4 text-xs text-gray-500 px-4 py-2 border-b border-gray-800 uppercase tracking-wider">
+                <span>Task</span>
+                <span>Project</span>
+                <span>Priority</span>
+                <span>Due Date</span>
+              </div>
+              {allTasks
+                .filter(t => t.status !== 'done')
+                .sort((a, b) => {
+                  const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
+                  if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                    return priorityOrder[a.priority] - priorityOrder[b.priority]
+                  }
+                  if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate)
+                  if (a.dueDate) return -1
+                  if (b.dueDate) return 1
+                  return 0
+                })
+                .slice(0, 8)
+                .map((task) => {
+                  const overdue = task.dueDate && new Date() > new Date(task.dueDate)
+                  const dueSoon = task.dueDate && !overdue &&
+                    (new Date(task.dueDate) - new Date()) < 24 * 60 * 60 * 1000
+                  return (
+                    <div key={task._id}
+                      className="grid grid-cols-4 px-4 py-3 border-b border-gray-800 hover:bg-gray-800 transition-colors items-center">
+                      <span className="text-sm font-medium truncate pr-2">{task.title}</span>
+                      <span className="text-xs text-gray-400 truncate">{task.projectName}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded w-fit font-medium ${
+                        task.priority === 'urgent' ? 'bg-red-900 text-red-300' :
+                        task.priority === 'high' ? 'bg-orange-900 text-orange-300' :
+                        task.priority === 'medium' ? 'bg-blue-900 text-blue-300' :
+                        'bg-gray-700 text-gray-300'
+                      }`}>
+                        {task.priority === 'urgent' ? '⚡' :
+                         task.priority === 'high' ? '↑' :
+                         task.priority === 'medium' ? '→' : '↓'} {task.priority}
+                      </span>
+                      <span className={`text-xs ${
+                        overdue ? 'text-red-400 font-medium' :
+                        dueSoon ? 'text-yellow-400 font-medium' :
+                        'text-gray-400'
+                      }`}>
+                        {task.dueDate ? (
+                          <>
+                            {overdue && '⚠ '}
+                            {dueSoon && '🔔 '}
+                            {new Date(task.dueDate).toLocaleDateString()}
+                            {overdue && ' (overdue)'}
+                            {dueSoon && ' (due soon)'}
+                          </>
+                        ) : '—'}
+                      </span>
+                    </div>
+                  )
+                })}
+            </div>
           </div>
         )}
       </main>
