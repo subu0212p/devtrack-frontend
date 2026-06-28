@@ -48,6 +48,7 @@ const STATUS_LABELS = {
   'not-started': '○ Not Started',
   empty: '+ No tasks yet',
 }
+const [allTasks, setAllTasks] = useState([])
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
@@ -69,32 +70,34 @@ export default function Dashboard() {
   }, [user])
 
   const fetchData = async () => {
-    try {
-      const [projectsRes, countRes] = await Promise.all([
-        projectsAPI.getAll(),
-        notificationsAPI.getUnreadCount()
-      ])
-      const projs = projectsRes.data
-      setProjects(projs)
-      setUnreadCount(countRes.data.count)
+  try {
+    const [projectsRes, countRes] = await Promise.all([
+      projectsAPI.getAll(),
+      notificationsAPI.getUnreadCount()
+    ])
+    const projs = projectsRes.data
+    setProjects(projs)
+    setUnreadCount(countRes.data.count)
 
-      // fetch tasks for each project
-      const tasksMap = {}
-      await Promise.all(projs.map(async (p) => {
-        try {
-          const res = await tasksAPI.getByProject(p._id)
-          tasksMap[p._id] = res.data
-        } catch {
-          tasksMap[p._id] = []
-        }
-      }))
-      setProjectTasks(tasksMap)
-    } catch (err) {
-      toast.error('Failed to load data')
-    } finally {
-      setLoading(false)
-    }
+    const tasksMap = {}
+    const allTasksList = []
+    await Promise.all(projs.map(async (p) => {
+      try {
+        const res = await tasksAPI.getByProject(p._id)
+        tasksMap[p._id] = res.data
+        res.data.forEach(t => allTasksList.push({ ...t, projectName: p.name }))
+      } catch {
+        tasksMap[p._id] = []
+      }
+    }))
+    setProjectTasks(tasksMap)
+    setAllTasks(allTasksList)
+  } catch (err) {
+    toast.error('Failed to load data')
+  } finally {
+    setLoading(false)
   }
+}
 
   const fetchNotifications = async () => {
     try {

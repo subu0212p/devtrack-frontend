@@ -21,6 +21,7 @@ export default function ProjectSettingsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [inviteRole, setInviteRole] = useState('member')
 
   useEffect(() => {
     if (!user) { router.push('/login'); return }
@@ -46,7 +47,11 @@ export default function ProjectSettingsPage() {
     setSearching(true)
     try {
       const res = await usersAPI.search(q)
-      setSearchResults(res.data)
+      if (res.data.length === 0) {
+        setSearchResults([{ notFound: true }])
+      } else {
+        setSearchResults(res.data)
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -119,6 +124,18 @@ export default function ProjectSettingsPage() {
               Invite member
             </h2>
 
+            {/* Role selector */}
+            <div className="mb-4">
+              <label className="text-sm text-gray-300 mb-1 block">Access level</label>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm">
+                <option value="member">Member — can create and edit tasks</option>
+                <option value="viewer">Viewer — can only view tasks</option>
+              </select>
+            </div>
+
             {/* Search users */}
             <div className="relative mb-4">
               <Input
@@ -129,26 +146,35 @@ export default function ProjectSettingsPage() {
               />
               {searchResults.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden z-10">
-                  {searchResults.map((u) => (
-                    <div key={u._id}
-                      className="flex items-center justify-between px-4 py-3 hover:bg-gray-700 cursor-pointer"
-                      onClick={() => handleInvite(u.email)}>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className="bg-blue-700 text-white text-xs">
-                            {u.name?.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{u.name}</p>
-                          <p className="text-xs text-gray-400">{u.email}</p>
-                        </div>
-                      </div>
-                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs">
-                        Invite
-                      </Button>
+                  {searchResults[0]?.notFound ? (
+                    <div className="px-4 py-3 text-gray-400 text-sm">
+                      No user found with that name or email
                     </div>
-                  ))}
+                  ) : (
+                    searchResults.map((u) => (
+                      <div key={u._id}
+                        className="flex items-center justify-between px-4 py-3 hover:bg-gray-700 cursor-pointer"
+                        onClick={() => handleInvite(u.email)}>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className="bg-blue-700 text-white text-xs">
+                              {u.name?.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{u.name}</p>
+                            <p className="text-xs text-gray-400">{u.email}</p>
+                            {u.username && (
+                              <p className="text-xs text-blue-400">@{u.username}</p>
+                            )}
+                          </div>
+                        </div>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs">
+                          Invite
+                        </Button>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
