@@ -49,6 +49,8 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true)
   const [showNewTask, setShowNewTask] = useState(false)
   const [showTaskDetail, setShowTaskDetail] = useState(null)
+  const [editingTask, setEditingTask] = useState(false)
+  const [editForm, setEditForm] = useState({})
   const [showAI, setShowAI] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState([])
   const [aiLoading, setAiLoading] = useState(false)
@@ -140,6 +142,18 @@ export default function ProjectPage() {
     }
   }
 
+  const handleUpdateTask = async () => {
+    try {
+      const res = await tasksAPI.update(showTaskDetail._id, editForm)
+      setTasks(tasks.map(t => t._id === showTaskDetail._id ? res.data : t))
+      setShowTaskDetail(res.data)
+      setEditingTask(false)
+      toast.success('Task updated!')
+    } catch (err) {
+      toast.error('Failed to update task')
+    }
+  }
+
   const handleAISuggest = async () => {
     if (!project) return
     setAiLoading(true)
@@ -227,7 +241,6 @@ export default function ProjectPage() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => handleDrop(col.id)}>
 
-            {/* Column header */}
             <div className={`flex items-center justify-between mb-3 pb-2 border-b-2 ${col.color}`}>
               <span className="font-semibold text-sm">{col.label}</span>
               <span className="bg-gray-800 text-gray-400 text-xs px-2 py-0.5 rounded-full">
@@ -235,7 +248,6 @@ export default function ProjectPage() {
               </span>
             </div>
 
-            {/* Tasks */}
             <div className="space-y-3">
               {getTasksByStatus(col.id).map((task) => (
                 <div
@@ -281,7 +293,6 @@ export default function ProjectPage() {
                 </div>
               ))}
 
-              {/* Add task button in column */}
               <button
                 onClick={() => { setNewTask({...newTask, status: col.id}); setShowNewTask(true) }}
                 className="w-full text-gray-600 hover:text-gray-400 text-sm py-2 border border-dashed border-gray-800 hover:border-gray-600 rounded-xl transition-colors">
@@ -357,69 +368,153 @@ export default function ProjectPage() {
 
       {/* Task Detail Dialog */}
       {showTaskDetail && (
-        <Dialog open={!!showTaskDetail} onOpenChange={() => setShowTaskDetail(null)}>
+        <Dialog open={!!showTaskDetail} onOpenChange={() => { setShowTaskDetail(null); setEditingTask(false) }}>
           <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-lg">
             <DialogHeader>
-              <DialogTitle className="text-lg">{showTaskDetail.title}</DialogTitle>
+              <DialogTitle className="text-lg">
+                {editingTask ? 'Edit Task' : showTaskDetail.title}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2">
-              <div className="flex gap-2 flex-wrap">
-                <span className={`text-xs px-2 py-1 rounded font-medium ${PRIORITY_COLORS[showTaskDetail.priority]}`}>
-                  {PRIORITY_ICONS[showTaskDetail.priority]} {showTaskDetail.priority}
-                </span>
-                <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-300">
-                  {showTaskDetail.status}
-                </span>
-                {showTaskDetail.dueDate && (
-                  <span className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${isOverdue(showTaskDetail) ? 'bg-red-900 text-red-300' : 'bg-gray-800 text-gray-300'}`}>
-                    <Calendar size={10} />
-                    {new Date(showTaskDetail.dueDate).toLocaleDateString()}
-                    {isOverdue(showTaskDetail) && ' (overdue)'}
-                  </span>
-                )}
-              </div>
-
-              {showTaskDetail.description && (
-                <p className="text-gray-400 text-sm">{showTaskDetail.description}</p>
-              )}
-
-              <div className="border-t border-gray-800 pt-4">
-                <h4 className="text-sm font-medium mb-3">
-                  Comments ({showTaskDetail.comments?.length || 0})
-                </h4>
-                <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
-                  {showTaskDetail.comments?.map((c, i) => (
-                    <div key={i} className="bg-gray-800 rounded-lg p-3">
-                      <p className="text-xs text-gray-400 mb-1">
-                        {c.user?.name || 'User'}
-                      </p>
-                      <p className="text-sm">{c.text}</p>
+              {editingTask ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-gray-300">Title</label>
+                    <Input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+                      className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-300">Description</label>
+                    <Input
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                      className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm text-gray-300">Priority</label>
+                      <select
+                        value={editForm.priority}
+                        onChange={(e) => setEditForm({...editForm, priority: e.target.value})}
+                        className="mt-1 w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                      </select>
                     </div>
-                  ))}
+                    <div>
+                      <label className="text-sm text-gray-300">Status</label>
+                      <select
+                        value={editForm.status}
+                        onChange={(e) => setEditForm({...editForm, status: e.target.value})}
+                        className="mt-1 w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm">
+                        <option value="todo">Todo</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="in-review">In Review</option>
+                        <option value="done">Done</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-300">Due date</label>
+                    <Input
+                      type="date"
+                      value={editForm.dueDate ? new Date(editForm.dueDate).toISOString().split('T')[0] : ''}
+                      onChange={(e) => setEditForm({...editForm, dueDate: e.target.value})}
+                      className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="outline"
+                      className="flex-1 border-gray-700 text-gray-300"
+                      onClick={() => setEditingTask(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      onClick={handleUpdateTask}>
+                      Save changes
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a comment..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    className="bg-gray-800 border-gray-700 text-white text-sm"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
-                  />
-                  <Button onClick={handleAddComment}
-                    className="bg-blue-600 hover:bg-blue-700 text-sm">
-                    Send
-                  </Button>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex gap-2 flex-wrap">
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${PRIORITY_COLORS[showTaskDetail.priority]}`}>
+                      {PRIORITY_ICONS[showTaskDetail.priority]} {showTaskDetail.priority}
+                    </span>
+                    <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-300">
+                      {showTaskDetail.status}
+                    </span>
+                    {showTaskDetail.dueDate && (
+                      <span className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${isOverdue(showTaskDetail) ? 'bg-red-900 text-red-300' : 'bg-gray-800 text-gray-300'}`}>
+                        <Calendar size={10} />
+                        {new Date(showTaskDetail.dueDate).toLocaleDateString()}
+                        {isOverdue(showTaskDetail) && ' (overdue)'}
+                      </span>
+                    )}
+                  </div>
 
-              <div className="flex justify-end pt-2">
-                <Button
-                  onClick={() => handleDeleteTask(showTaskDetail._id)}
-                  variant="outline"
-                  className="border-red-800 text-red-400 hover:bg-red-950 text-sm">
-                  Delete task
-                </Button>
-              </div>
+                  {showTaskDetail.description && (
+                    <p className="text-gray-400 text-sm">{showTaskDetail.description}</p>
+                  )}
+
+                  <div className="border-t border-gray-800 pt-4">
+                    <h4 className="text-sm font-medium mb-3">
+                      Comments ({showTaskDetail.comments?.length || 0})
+                    </h4>
+                    <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
+                      {showTaskDetail.comments?.map((c, i) => (
+                        <div key={i} className="bg-gray-800 rounded-lg p-3">
+                          <p className="text-xs text-gray-400 mb-1">{c.user?.name || 'User'}</p>
+                          <p className="text-sm">{c.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a comment..."
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white text-sm"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                      />
+                      <Button onClick={handleAddComment}
+                        className="bg-blue-600 hover:bg-blue-700 text-sm">
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between pt-2">
+                    <Button
+                      onClick={() => {
+                        setEditForm({
+                          title: showTaskDetail.title,
+                          description: showTaskDetail.description || '',
+                          priority: showTaskDetail.priority,
+                          status: showTaskDetail.status,
+                          dueDate: showTaskDetail.dueDate || ''
+                        })
+                        setEditingTask(true)
+                      }}
+                      className="bg-gray-700 hover:bg-gray-600 text-sm">
+                      Edit task
+                    </Button>
+                    <Button
+                      onClick={() => handleDeleteTask(showTaskDetail._id)}
+                      variant="outline"
+                      className="border-red-800 text-red-400 hover:bg-red-950 text-sm">
+                      Delete task
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </DialogContent>
         </Dialog>
